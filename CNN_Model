@@ -1,0 +1,200 @@
+#defining libraries
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import cv2
+import os
+import numpy as np
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras import callbacks,optimizers
+
+#import the dataset
+from google.colab import drive
+drive.mount('/content/drive')
+
+#find the shape of the image
+cv2.imread("enter_your_filename.jpg").shape
+
+#reshape the images for uniformity
+train = ImageDataGenerator(rescale=1/255)
+validation = ImageDataGenerator(rescale= 1/255)
+
+#define train and validation dataset
+train_dataset = train.flow_from_directory('enter_your_directory',
+                                          target_size=(200,200),
+                                          batch_size=3,
+                                          class_mode='categorical')
+
+validation_dataset = validation.flow_from_directory('enter_your_directory',
+                                          target_size=(200,200),
+                                          batch_size=3,
+                                          class_mode='categorical')
+#train dataset classed by the categorical function
+train_dataset.class_indices
+train_dataset.classes
+
+#model definition
+model = tf.keras.models.Sequential([tf.keras.layers.Conv2D(16,(3,3),activation='relu',input_shape=(200,200,3)),
+                                    tf.keras.layers.MaxPool2D(2,2),
+                                    #
+                                    tf.keras.layers.Conv2D(32,(3,3),activation='relu'),
+                                    tf.keras.layers.MaxPool2D(2,2),
+                                    #
+                                     tf.keras.layers.Conv2D(64,(3,3),activation='relu'),
+                                    tf.keras.layers.MaxPool2D(2,2),
+                                    #
+                                    tf.keras.layers.Flatten(),
+                                    ##
+                                    tf.keras.layers.Dense(512,activation='relu'),
+                                    ##
+                                    tf.keras.layers.Dense(1,activation='softmax')
+                                    ])
+
+#model compile
+model.compile(loss= 'categorical_crossentropy',
+              optimizer = RMSprop(lr=0.001),
+              metrics=['accuracy'])
+
+
+#model architecture
+model.summary()
+
+#model fit for 20 epochs
+model_fit = model.fit(train_dataset,
+                      validation_data= validation_dataset,
+                      epochs=20,
+                      steps_per_epoch=len(train_dataset))
+
+#save the model for future predictions
+model.save('mymodel.h5')
+
+#plot the metrics values vs epoch
+plt.plot(model_fit.history['loss'], label='train loss')
+plt.plot(model_fit.history['val_loss'], label='val loss')
+plt.legend()
+plt.show()
+plt.savefig('LossVal_loss')
+
+# plot the accuracy
+plt.plot(model_fit.history['accuracy'], label='train acc')
+plt.plot(model_fit.history['val_accuracy'], label='val acc')
+plt.legend()
+plt.show()
+plt.savefig('AccVal_acc')
+
+#preditction (predicts the age group of the image given)
+img=image.load_img('enter_your_filename.jpg',target_size=(200,200))
+plt.imshow(img)
+X=image.img_to_array(img)
+X=np.expand_dims(X,axis=0)
+images=np.vstack([X])
+val=model.predict(images)
+print("val %s"%val)
+rach=val.argmax()
+if rach==0:
+  print("00-05")
+if rach==1:
+  print("06-12")
+if rach==2:
+  print("13-18")
+if rach==3:
+  print("19-25")
+if rach==4:
+  print("26-35")
+if rach==5:
+  print("36-45")
+if rach==6:
+  print("46-55")
+if rach==7:
+  print("56-65")
+
+#for real time predictions(inbuilt function to capture the image)
+from IPython.display import display, Javascript
+from google.colab.output import eval_js
+from base64 import b64decode
+
+def take_photo(filename='photo.jpg', quality=0.8):
+  js = Javascript('''
+    async function takePhoto(quality) {
+      const div = document.createElement('div');
+      const capture = document.createElement('button');
+      capture.textContent = 'Capture';
+      div.appendChild(capture);
+
+      const video = document.createElement('video');
+      video.style.display = 'block';
+      const stream = await navigator.mediaDevices.getUserMedia({video: true});
+
+      document.body.appendChild(div);
+      div.appendChild(video);
+      video.srcObject = stream;
+      await video.play();
+
+      // Resize the output to fit the video element.
+      google.colab.output.setIframeHeight(document.documentElement.scrollHeight, true);
+
+      // Wait for Capture to be clicked.
+      await new Promise((resolve) => capture.onclick = resolve);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      stream.getVideoTracks()[0].stop();
+      div.remove();
+      return canvas.toDataURL('image/jpeg', quality);
+    }
+    ''')
+  display(js)
+  data = eval_js('takePhoto({})'.format(quality))
+  binary = b64decode(data.split(',')[1])
+  with open(filename, 'wb') as f:
+    f.write(binary)
+  return filename
+
+#to display the image
+from IPython.display import Image
+try:
+  filename = take_photo()
+  print('Saved to {}'.format(filename))
+  
+  # Show the image which was just taken.
+  display(Image(filename))
+except Exception as err:
+  # Errors will be thrown if the user does not have a webcam or if they do not
+  # grant the page permission to access it.
+  print(str(err))
+
+
+#prediction on real time image taken
+img=image.load_img('photo.jpg',target_size=(200,200))
+plt.imshow(img)
+X=image.img_to_array(img)
+X=np.expand_dims(X,axis=0)
+images=np.vstack([X])
+val=model.predict(images)
+
+rach=val.argmax()
+if rach==0:
+  print("0-05")
+if rach==1:
+  print("6-12")
+if rach==2:
+  print("13-18")
+if rach==3:
+  print("19-25")
+if rach==4:
+  print("26-35")
+if rach==5:
+  print("36-45")
+if rach==6:
+  print("46-55")
+if rach==7:
+  print("56-65")
+
+  
+
+
+
+
